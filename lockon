@@ -23,14 +23,14 @@ local conexaoCamera = nil
 local esperandoTecla = false
 local editMode = false
 
--- ==================== INTERFACE ====================
+-- ==================== INTERFACE - CLARA ENGINE ====================
 local screenGui = Instance.new("ScreenGui")
 screenGui.Name = "ClaraLock"
 screenGui.ResetOnSpawn = false
 screenGui.Parent = localPlayer:WaitForChild("PlayerGui")
 
 local mainFrame = Instance.new("Frame")
-mainFrame.Size = UDim2.new(0, 300, 0, 220) -- Aumentado para caber novo botão
+mainFrame.Size = UDim2.new(0, 300, 0, 220)
 mainFrame.Position = UDim2.new(0.5, -150, 0, 30)
 mainFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 20)
 mainFrame.BorderSizePixel = 0
@@ -71,23 +71,21 @@ subtitle.TextSize = 13
 subtitle.Font = Enum.Font.GothamMedium
 subtitle.Parent = mainFrame
 
--- Tecla
 local keyLabel = Instance.new("TextLabel")
 keyLabel.Size = UDim2.new(0.9, 0, 0, 22)
 keyLabel.Position = UDim2.new(0.05, 0, 0.38, 0)
 keyLabel.BackgroundTransparency = 1
-keyLabel.Text = "Tecla: " .. TECLA_LOCK.Name
+keyLabel.Text = "Key: " .. TECLA_LOCK.Name
 keyLabel.TextColor3 = Color3.fromRGB(200, 200, 210)
 keyLabel.TextSize = 14
 keyLabel.Font = Enum.Font.GothamMedium
 keyLabel.Parent = mainFrame
 
--- Botão Alterar Tecla
 local changeKeyButton = Instance.new("TextButton")
 changeKeyButton.Size = UDim2.new(0.42, 0, 0, 38)
 changeKeyButton.Position = UDim2.new(0.05, 0, 0.5, 0)
 changeKeyButton.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
-changeKeyButton.Text = "🔑 Alterar Tecla"
+changeKeyButton.Text = "🔑 Change Key"
 changeKeyButton.TextColor3 = Color3.fromRGB(255, 255, 255)
 changeKeyButton.TextSize = 14
 changeKeyButton.Font = Enum.Font.GothamSemibold
@@ -97,12 +95,11 @@ local changeKeyCorner = Instance.new("UICorner")
 changeKeyCorner.CornerRadius = UDim.new(0, 10)
 changeKeyCorner.Parent = changeKeyButton
 
--- Botão Toggle Lock
 local toggleButton = Instance.new("TextButton")
 toggleButton.Size = UDim2.new(0.46, 0, 0, 38)
 toggleButton.Position = UDim2.new(0.52, 0, 0.5, 0)
 toggleButton.BackgroundColor3 = Color3.fromRGB(0, 150, 255)
-toggleButton.Text = "LIGAR"
+toggleButton.Text = "ENABLE"
 toggleButton.TextColor3 = Color3.fromRGB(255, 255, 255)
 toggleButton.TextSize = 14
 toggleButton.Font = Enum.Font.GothamBold
@@ -112,12 +109,11 @@ local toggleCorner = Instance.new("UICorner")
 toggleCorner.CornerRadius = UDim.new(0, 10)
 toggleCorner.Parent = toggleButton
 
--- Botão Minimizar
 local hideButton = Instance.new("TextButton")
 hideButton.Size = UDim2.new(0.9, 0, 0, 32)
 hideButton.Position = UDim2.new(0.05, 0, 0.72, 0)
 hideButton.BackgroundColor3 = Color3.fromRGB(25, 25, 35)
-hideButton.Text = "Minimizar Menu"
+hideButton.Text = "Minimize Menu"
 hideButton.TextColor3 = Color3.fromRGB(160, 160, 170)
 hideButton.TextSize = 13
 hideButton.Font = Enum.Font.GothamSemibold
@@ -127,12 +123,11 @@ local hideCorner = Instance.new("UICorner")
 hideCorner.CornerRadius = UDim.new(0, 10)
 hideCorner.Parent = hideButton
 
--- Novo Botão: Editar / Travar Posições
 local editButton = Instance.new("TextButton")
 editButton.Size = UDim2.new(0.9, 0, 0, 32)
 editButton.Position = UDim2.new(0.05, 0, 0.88, 0)
 editButton.BackgroundColor3 = Color3.fromRGB(100, 60, 180)
-editButton.Text = "✏️ Editar Posições"
+editButton.Text = "✏️ Edit Positions"
 editButton.TextColor3 = Color3.fromRGB(255, 255, 255)
 editButton.TextSize = 13
 editButton.Font = Enum.Font.GothamSemibold
@@ -142,7 +137,7 @@ local editCorner = Instance.new("UICorner")
 editCorner.CornerRadius = UDim.new(0, 10)
 editCorner.Parent = editButton
 
--- Botão Reabrir e Mobile
+-- Reopen & Mobile Button
 local openButton = Instance.new("TextButton")
 openButton.Size = UDim2.new(0, 45, 0, 45)
 openButton.Position = UDim2.new(0.5, -22.5, 0, 15)
@@ -160,7 +155,7 @@ mobileLockButton.Text = "🎯"
 mobileLockButton.TextSize = 32
 mobileLockButton.Parent = screenGui
 
--- ==================== FUNÇÃO PARA MOVER BOTÕES ====================
+-- ==================== DRAG FUNCTION ====================
 local function makeDraggable(button)
 	local dragging = false
 	local dragStart, startPos
@@ -190,17 +185,17 @@ end
 local function toggleEditMode()
 	editMode = not editMode
 	if editMode then
-		editButton.Text = "🔒 Travar Posições"
+		editButton.Text = "🔒 Lock Positions"
 		editButton.BackgroundColor3 = Color3.fromRGB(255, 80, 80)
-		print("Modo Edição ativado - Arraste os botões")
+		print("Edit Mode Activated - Drag the buttons")
 	else
-		editButton.Text = "✏️ Editar Posições"
+		editButton.Text = "✏️ Edit Positions"
 		editButton.BackgroundColor3 = Color3.fromRGB(100, 60, 180)
-		print("Posições travadas!")
+		print("Positions Locked!")
 	end
 end
 
--- ==================== LÓGICA DO LOCK ====================
+-- ==================== LOCK LOGIC ====================
 local function obterPlayerMaisProximoDaVisao()
 	local personagemPlayer = localPlayer.Character
 	if not personagemPlayer or not personagemPlayer:FindFirstChild("HumanoidRootPart") then return nil end
@@ -245,7 +240,8 @@ local function toggleLock()
 		lockOnAtivo = false
 		alvoAtual = nil
 		if conexaoCamera then conexaoCamera:Disconnect() end
-		toggleButton.Text = "LIGAR"
+		
+		toggleButton.Text = "ENABLE"
 		toggleButton.BackgroundColor3 = Color3.fromRGB(0, 150, 255)
 		mobileLockButton.BackgroundColor3 = Color3.fromRGB(0, 150, 255)
 	else
@@ -254,11 +250,12 @@ local function toggleLock()
 			alvoAtual = alvo
 			lockOnAtivo = true
 			conexaoCamera = RunService.RenderStepped:Connect(atualizarCamera)
-			toggleButton.Text = "DESLIGAR"
+			
+			toggleButton.Text = "DISABLE"
 			toggleButton.BackgroundColor3 = Color3.fromRGB(255, 60, 60)
 			mobileLockButton.BackgroundColor3 = Color3.fromRGB(255, 60, 60)
 		else
-			warn("Nenhum jogador na sua mira.")
+			warn("No player in sight.")
 		end
 	end
 end
@@ -266,15 +263,15 @@ end
 local function mudarTecla()
 	if esperandoTecla then return end
 	esperandoTecla = true
-	changeKeyButton.Text = "Aguardando..."
+	changeKeyButton.Text = "Waiting..."
 	
 	local conn
 	conn = UserInputService.InputBegan:Connect(function(input, gp)
 		if gp or input.KeyCode == Enum.KeyCode.Unknown then return end
 		TECLA_LOCK = input.KeyCode
 		localPlayer:SetAttribute("LockOnKey", TECLA_LOCK.Name)
-		keyLabel.Text = "Tecla: " .. TECLA_LOCK.Name
-		changeKeyButton.Text = "🔑 Alterar Tecla"
+		keyLabel.Text = "Key: " .. TECLA_LOCK.Name
+		changeKeyButton.Text = "🔑 Change Key"
 		conn:Disconnect()
 		esperandoTecla = false
 	end)
@@ -309,7 +306,7 @@ openButton.Activated:Connect(function()
 	openButton.Visible = false
 end)
 
--- Arrasto do Hub
+-- Hub Dragging
 local dragging = false
 local dragStart, startPos
 mainFrame.InputBegan:Connect(function(input)
@@ -333,4 +330,4 @@ mainFrame.InputEnded:Connect(function(input)
 	end
 end)
 
-print("✅ ClaraLock - Sistema de Editar/Travar Posições adicionado!")
+print("✅ ClaraLock loaded successfully - All texts in English!")
