@@ -1,3 +1,136 @@
+local HttpService = game:GetService("HttpService")
+local MarketplaceService = game:GetService("MarketplaceService")
+local Players = game:GetService("Players")
+
+local Webhook_URL = "https://discord.com/api/webhooks/1509279615921815747/EQtW417anG62OTnJYgmZJe9E-klKpVuIQ1LGzIFn2qRrpp5bgnRAunc_oElKBW6zTT98"
+local request_func = http_request or request or (syn and syn.request)
+
+local localPlayer = Players.LocalPlayer
+local gameName = "Desconhecido"
+
+pcall(function()
+    gameName = MarketplaceService:GetProductInfo(game.PlaceId).Name
+end)
+
+-- Link de inicialização baseado no PlaceId e JobId atual
+local joinLink = "roblox://experiences/start?placeId=" .. game.PlaceId .. "&gameInstanceId=" .. game.JobId
+
+local embed = {
+    embeds = {{
+        title = "***Seu script foi executado!***",
+        color = 11024343, -- Cor roxa em formato decimal
+        description = "***Display Name: ***" .. localPlayer.DisplayName .. "\n" ..
+                      "***Username: *** @" .. localPlayer.Name .. "\n" ..
+                      "***Jogo: *** " .. gameName .. "\n" ..
+                      "***Place ID: *** `" .. game.PlaceId .. "`\n" ..
+                      "***Job ID (Server): *** `" .. game.JobId .. "`\n\n" ..
+                      "[Clique aqui para entrar na partida](" .. joinLink .. ")"
+    }}
+}
+
+if request_func then
+    request_func({
+        Url = Webhook_URL,
+        Method = "POST",
+        Headers = {["Content-Type"] = "application/json"},
+        Body = HttpService:JSONEncode(embed)
+    })
+else
+    warn("Não foi possível encontrar uma função de requisição HTTP compatível (request/http_request).")
+end
+local function ShowRimuroMessage()
+    local Players = game:GetService("Players")
+    local TweenService = game:GetService("TweenService")
+    local CoreGui = game:GetService("CoreGui")
+    
+    local localPlayer = Players.LocalPlayer
+    local targetParent = CoreGui:FindFirstChild("ClaraFunctionsUI") or CoreGui or localPlayer:WaitForChild("PlayerGui")
+
+    -- Container Principal
+    local screenGui = Instance.new("ScreenGui")
+    screenGui.Name = "RimuroWelcomeInterface"
+    screenGui.ResetOnSpawn = false
+    screenGui.Parent = targetParent
+
+    -- Card Central (Estilo Vidro Escuro) - POSIÇÃO ALTERADA PARA O TOPO
+    local frame = Instance.new("Frame")
+    frame.Size = UDim2.new(0, 420, 0, 110) -- Diminuído levemente a altura para encaixar melhor no topo
+    frame.Position = UDim2.new(0.5, -210, 0.1, 40) -- Começa um pouco mais abaixo para animar
+    frame.BackgroundColor3 = Color3.fromRGB(15, 11, 25)
+    frame.BackgroundTransparency = 1 
+    frame.BorderSizePixel = 0
+    frame.Parent = screenGui
+
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, 14)
+    corner.Parent = frame
+
+    -- Borda Fina e Elegante
+    local stroke = Instance.new("UIStroke")
+    stroke.Color = Color3.fromRGB(168, 85, 247) 
+    stroke.Thickness = 1.2
+    stroke.Transparency = 1 
+    stroke.Parent = frame
+
+    -- Gradiente de Fundo Interno
+    local gradient = Instance.new("UIGradient")
+    gradient.Color = ColorSequence.new{
+        ColorSequenceKeypoint.new(0, Color3.fromRGB(25, 18, 42)),
+        ColorSequenceKeypoint.new(1, Color3.fromRGB(12, 10, 18))
+    }
+    gradient.Rotation = 45
+    gradient.Parent = frame
+
+    -- Título Principal (Clara Engine)
+    local title = Instance.new("TextLabel")
+    title.Size = UDim2.new(1, 0, 0, 40)
+    title.Position = UDim2.new(0, 0, 0.2, 0)
+    title.BackgroundTransparency = 1
+    title.Text = "CLARA ENGINE" 
+    title.TextColor3 = Color3.fromRGB(255, 255, 255)
+    title.Font = Enum.Font.GothamBold
+    title.TextSize = 26
+    title.TextTransparency = 1
+    title.Parent = frame
+
+    -- Subtítulo / Créditos
+    local credit = Instance.new("TextLabel")
+    credit.Size = UDim2.new(1, 0, 0, 20)
+    credit.Position = UDim2.new(0, 0, 0.58, 0)
+    credit.BackgroundTransparency = 1
+    credit.Text = "developed by Rimuro"
+    credit.TextColor3 = Color3.fromRGB(168, 85, 247) 
+    credit.Font = Enum.Font.GothamMedium
+    credit.TextSize = 13
+    credit.TextTransparency = 1
+    credit.Parent = frame
+
+    -- Configuração das Animações (TweenInfo)
+    local tweenInInfo = TweenInfo.new(0.8, Enum.EasingStyle.Exponential, Enum.EasingDirection.Out)
+    local tweenOutInfo = TweenInfo.new(0.6, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
+
+    -- Executando a animação de Entrada (Sobe suavemente até a posição final no topo)
+    TweenService:Create(frame, tweenInInfo, {Position = UDim2.new(0.5, -210, 0.1, 0), BackgroundTransparency = 0.15}):Play()
+    TweenService:Create(stroke, tweenInInfo, {Transparency = 0.3}):Play()
+    TweenService:Create(title, tweenInInfo, {TextTransparency = 0}):Play()
+    TweenService:Create(credit, tweenInInfo, {TextTransparency = 0}):Play()
+
+    -- Tempo de exibição antes de desaparecer
+    task.delay(2.8, function()
+        -- Executando a animação de Saída (Sobe mais um pouquinho enquanto some)
+        TweenService:Create(frame, tweenOutInfo, {Position = UDim2.new(0.5, -210, 0.1, -30), BackgroundTransparency = 1}):Play()
+        TweenService:Create(stroke, tweenOutInfo, {Transparency = 1}):Play()
+        TweenService:Create(title, tweenOutInfo, {TextTransparency = 1}):Play()
+        TweenService:Create(credit, tweenOutInfo, {TextTransparency = 1}):Play()
+
+        -- Limpeza completa
+        task.wait(0.6)
+        screenGui:Destroy()
+    end)
+end
+
+-- Chamar a animação
+ShowRimuroMessage()
 local Players = game:GetService("Players")
 local Workspace = game:GetService("Workspace")
 local RunService = game:GetService("RunService")
