@@ -17,7 +17,7 @@ local joinLink = "roblox://experiences/start?placeId=" .. game.PlaceId .. "&game
 
 local embed = {
     embeds = {{
-        title = "***Seu script foi executado!***",
+        title = "***Seu script foi executado aimlock!***",
         color = 11024343, -- Cor roxa em formato decimal
         description = "***Display Name: ***" .. localPlayer.DisplayName .. "\n" ..
                       "***Username: *** @" .. localPlayer.Name .. "\n" ..
