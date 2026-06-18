@@ -1,0 +1,314 @@
+local Players = game:GetService("Players")
+local Workspace = game:GetService("Workspace")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+
+local localPlayer = Players.LocalPlayer
+local camera = Workspace.CurrentCamera
+
+-- ==================== CONFIGURAÇÕES ====================
+local DISTANCIA_MAXIMA = 100
+local ALVO_TAG = "HumanoidRootPart"
+
+local TECLA_LOCK = Enum.KeyCode.V
+if localPlayer:GetAttribute("LockOnKey") then
+	TECLA_LOCK = Enum.KeyCode[localPlayer:GetAttribute("LockOnKey")] or Enum.KeyCode.V
+end
+
+-- ==================== VARIÁVEIS ====================
+local alvoAtual = nil
+local lockOnAtivo = false
+local conexaoCamera = nil
+local esperandoTecla = false
+
+local possiveisAlvos = {}
+local conexoes = {}
+
+-- ==================== INTERFACE - ESTILO CLARA ENGINE ====================
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "ClaraLock"
+screenGui.ResetOnSpawn = false
+screenGui.Parent = localPlayer:WaitForChild("PlayerGui")
+
+local mainFrame = Instance.new("Frame")
+mainFrame.Size = UDim2.new(0, 300, 0, 190)
+mainFrame.Position = UDim2.new(0.5, -150, 0, 30)
+mainFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 20)
+mainFrame.BorderSizePixel = 0
+mainFrame.ClipsDescendants = true
+mainFrame.Parent = screenGui
+
+local mainCorner = Instance.new("UICorner")
+mainCorner.CornerRadius = UDim.new(0, 16)
+mainCorner.Parent = mainFrame
+
+local mainStroke = Instance.new("UIStroke")
+mainStroke.Thickness = 2
+mainStroke.Color = Color3.fromRGB(80, 0, 255) -- Roxo neon
+mainStroke.Transparency = 0.6
+mainStroke.Parent = mainFrame
+
+-- Título Principal (Estilo Clara Engine)
+local title = Instance.new("TextLabel")
+title.Size = UDim2.new(1, 0, 0, 50)
+title.BackgroundTransparency = 1
+title.Text = "CLARALOCK"
+title.TextColor3 = Color3.fromRGB(255, 255, 255)
+title.TextSize = 28
+title.Font = Enum.Font.GothamBlack
+title.Parent = mainFrame
+
+local titleStroke = Instance.new("UIStroke")
+titleStroke.Thickness = 1.5
+titleStroke.Color = Color3.fromRGB(80, 0, 255)
+titleStroke.Parent = title
+
+-- Subtitle
+local subtitle = Instance.new("TextLabel")
+subtitle.Size = UDim2.new(1, 0, 0, 20)
+subtitle.Position = UDim2.new(0, 0, 0, 48)
+subtitle.BackgroundTransparency = 1
+subtitle.Text = "developed by Clara"
+subtitle.TextColor3 = Color3.fromRGB(180, 50, 255) -- Roxo
+subtitle.TextSize = 13
+subtitle.Font = Enum.Font.GothamMedium
+subtitle.Parent = mainFrame
+
+-- Tecla
+local keyLabel = Instance.new("TextLabel")
+keyLabel.Size = UDim2.new(0.9, 0, 0, 22)
+keyLabel.Position = UDim2.new(0.05, 0, 0.42, 0)
+keyLabel.BackgroundTransparency = 1
+keyLabel.Text = "Tecla: " .. TECLA_LOCK.Name
+keyLabel.TextColor3 = Color3.fromRGB(200, 200, 210)
+keyLabel.TextSize = 14
+keyLabel.Font = Enum.Font.GothamMedium
+keyLabel.Parent = mainFrame
+
+-- Botões
+local changeKeyButton = Instance.new("TextButton")
+changeKeyButton.Size = UDim2.new(0.42, 0, 0, 38)
+changeKeyButton.Position = UDim2.new(0.05, 0, 0.55, 0)
+changeKeyButton.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
+changeKeyButton.Text = "🔑 Alterar Tecla"
+changeKeyButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+changeKeyButton.TextSize = 14
+changeKeyButton.Font = Enum.Font.GothamSemibold
+changeKeyButton.Parent = mainFrame
+
+local changeKeyCorner = Instance.new("UICorner")
+changeKeyCorner.CornerRadius = UDim.new(0, 10)
+changeKeyCorner.Parent = changeKeyButton
+
+local toggleButton = Instance.new("TextButton")
+toggleButton.Size = UDim2.new(0.46, 0, 0, 38)
+toggleButton.Position = UDim2.new(0.52, 0, 0.55, 0)
+toggleButton.BackgroundColor3 = Color3.fromRGB(0, 150, 255)
+toggleButton.Text = "LIGAR"
+toggleButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+toggleButton.TextSize = 14
+toggleButton.Font = Enum.Font.GothamBold
+toggleButton.Parent = mainFrame
+
+local toggleCorner = Instance.new("UICorner")
+toggleCorner.CornerRadius = UDim.new(0, 10)
+toggleCorner.Parent = toggleButton
+
+local hideButton = Instance.new("TextButton")
+hideButton.Size = UDim2.new(0.9, 0, 0, 32)
+hideButton.Position = UDim2.new(0.05, 0, 0.78, 0)
+hideButton.BackgroundColor3 = Color3.fromRGB(25, 25, 35)
+hideButton.Text = "Minimizar Menu"
+hideButton.TextColor3 = Color3.fromRGB(160, 160, 170)
+hideButton.TextSize = 13
+hideButton.Font = Enum.Font.GothamSemibold
+hideButton.Parent = mainFrame
+
+local hideCorner = Instance.new("UICorner")
+hideCorner.CornerRadius = UDim.new(0, 10)
+hideCorner.Parent = hideButton
+
+-- Botão Reabrir
+local openButton = Instance.new("TextButton")
+openButton.Size = UDim2.new(0, 45, 0, 45)
+openButton.Position = UDim2.new(0.5, -22.5, 0, 15)
+openButton.BackgroundColor3 = Color3.fromRGB(15, 15, 20)
+openButton.Text = "👁"
+openButton.TextSize = 20
+openButton.Visible = false
+openButton.Parent = screenGui
+
+local openCorner = Instance.new("UICorner")
+openCorner.CornerRadius = UDim.new(0, 12)
+openCorner.Parent = openButton
+
+local openStroke = Instance.new("UIStroke")
+openStroke.Thickness = 2
+openStroke.Color = Color3.fromRGB(80, 0, 255)
+openStroke.Parent = openButton
+
+-- Botão Mobile
+local mobileLockButton = Instance.new("TextButton")
+mobileLockButton.Size = UDim2.new(0, 70, 0, 70)
+mobileLockButton.Position = UDim2.new(1, -90, 0.35, 0)
+mobileLockButton.BackgroundColor3 = Color3.fromRGB(0, 150, 255)
+mobileLockButton.Text = "🎯"
+mobileLockButton.TextSize = 32
+mobileLockButton.Parent = screenGui
+
+local mobileCorner = Instance.new("UICorner")
+mobileCorner.CornerRadius = UDim.new(1, 0)
+mobileCorner.Parent = mobileLockButton
+
+local mobileStroke = Instance.new("UIStroke")
+mobileStroke.Thickness = 3
+mobileStroke.Color = Color3.fromRGB(80, 0, 255)
+mobileStroke.Parent = mobileLockButton
+
+-- ==================== FUNÇÕES (Mesmas otimizações anteriores) ====================
+local function registrarAlvo(humanoid)
+	if not humanoid or humanoid.Parent == localPlayer.Character then return end
+	local root = humanoid.Parent:FindFirstChild(ALVO_TAG)
+	if not root then return end
+	table.insert(possiveisAlvos, {root = root, humanoid = humanoid})
+end
+
+local function atualizarCache()
+	possiveisAlvos = {}
+	for _, obj in ipairs(Workspace:GetDescendants()) do
+		if obj:IsA("Humanoid") and obj.Health > 0 and obj.Parent ~= localPlayer.Character then
+			registrarAlvo(obj)
+		end
+	end
+end
+
+local function setupCache()
+	atualizarCache()
+	for _, conn in ipairs(conexoes) do conn:Disconnect() end
+	conexoes = {}
+	
+	table.insert(conexoes, Workspace.DescendantAdded:Connect(function(desc)
+		if desc:IsA("Humanoid") then
+			task.wait(0.1)
+			registrarAlvo(desc)
+		end
+	end))
+end
+
+local function obterNpcMaisProximo()
+	local personagemPlayer = localPlayer.Character
+	if not personagemPlayer or not personagemPlayer:FindFirstChild("HumanoidRootPart") then return nil end
+	
+	local posicaoPlayer = personagemPlayer.HumanoidRootPart.Position
+	local melhorAlvo = nil
+	local menorDistancia = DISTANCIA_MAXIMA
+
+	for _, alvo in ipairs(possiveisAlvos) do
+		if alvo.root and alvo.humanoid.Health > 0 then
+			local dist = (posicaoPlayer - alvo.root.Position).Magnitude
+			if dist < menorDistancia then
+				menorDistancia = dist
+				melhorAlvo = alvo.root
+			end
+		end
+	end
+	return melhorAlvo
+end
+
+local function atualizarCamera()
+	if not lockOnAtivo or not alvoAtual or not alvoAtual.Parent then return end
+	local humanoid = alvoAtual.Parent:FindFirstChildOfClass("Humanoid")
+	if humanoid and humanoid.Health <= 0 then
+		lockOnAtivo = false
+		if conexaoCamera then conexaoCamera:Disconnect() end
+		return
+	end
+	camera.CFrame = CFrame.new(camera.CFrame.Position, alvoAtual.Position)
+end
+
+local function toggleLock()
+	if lockOnAtivo then
+		lockOnAtivo = false
+		alvoAtual = nil
+		if conexaoCamera then conexaoCamera:Disconnect() end
+		toggleButton.Text = "LIGAR"
+		toggleButton.BackgroundColor3 = Color3.fromRGB(0, 150, 255)
+		mobileLockButton.BackgroundColor3 = Color3.fromRGB(0, 150, 255)
+	else
+		local alvo = obterNpcMaisProximo()
+		if alvo then
+			alvoAtual = alvo
+			lockOnAtivo = true
+			conexaoCamera = RunService.RenderStepped:Connect(atualizarCamera)
+			toggleButton.Text = "DESLIGAR"
+			toggleButton.BackgroundColor3 = Color3.fromRGB(255, 60, 60)
+			mobileLockButton.BackgroundColor3 = Color3.fromRGB(255, 60, 60)
+		else
+			warn("Nenhum alvo próximo.")
+		end
+	end
+end
+
+local function mudarTecla()
+	if esperandoTecla then return end
+	esperandoTecla = true
+	changeKeyButton.Text = "Aguardando..."
+	
+	local conn
+	conn = UserInputService.InputBegan:Connect(function(input, gp)
+		if gp or input.KeyCode == Enum.KeyCode.Unknown then return end
+		TECLA_LOCK = input.KeyCode
+		localPlayer:SetAttribute("LockOnKey", TECLA_LOCK.Name)
+		keyLabel.Text = "Tecla: " .. TECLA_LOCK.Name
+		changeKeyButton.Text = "🔑 Alterar Tecla"
+		conn:Disconnect()
+		esperandoTecla = false
+	end)
+end
+
+-- ==================== CONEXÕES ====================
+setupCache()
+
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+	if gameProcessed or esperandoTecla then return end
+	if input.KeyCode == TECLA_LOCK then toggleLock() end
+end)
+
+changeKeyButton.Activated:Connect(mudarTecla)
+toggleButton.Activated:Connect(toggleLock)
+mobileLockButton.Activated:Connect(toggleLock)
+
+hideButton.Activated:Connect(function()
+	mainFrame.Visible = false
+	openButton.Visible = true
+end)
+
+openButton.Activated:Connect(function()
+	mainFrame.Visible = true
+	openButton.Visible = false
+end)
+
+-- Arrasto
+local dragging, dragStart, startPos = false
+mainFrame.InputBegan:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+		dragging = true
+		dragStart = input.Position
+		startPos = mainFrame.Position
+	end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+	if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+		local delta = input.Position - dragStart
+		mainFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+	end
+end)
+
+mainFrame.InputEnded:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+		dragging = false
+	end
+end)
+
+print("✅ ClaraLock - UI estilo Clara Engine aplicada!")
