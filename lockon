@@ -84,35 +84,33 @@ end
 ShowRimuroMessage()
 
 -- =============================================================================
--- 2. SETUP E CONFIGURAÇÕES GERAIS (Aimbot & ESP)
+-- 2. SETUP E CONFIGURAÇÕES GERAIS (Aimbot, ESP & Macros)
 -- =============================================================================
 local Players = game:GetService("Players")
 local Workspace = game:GetService("Workspace")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
+local VirtualInputManager = game:GetService("VirtualInputManager")
 
 local localPlayer = Players.LocalPlayer
 local camera = Workspace.CurrentCamera
 
--- Configurações de Trava de Mira (Salva via Attributes)
+-- Configurações salvas via Attributes
 local DISTANCIA_MAXIMA = 150
 local FOV_LOCK = 35
 local ALVO_TAG = "HumanoidRootPart"
 local TECLA_LOCK = Enum.KeyCode.V
+local TOGGLE_KEY_ESP = Enum.KeyCode.U
+local TECLA_HUD_PANEL = Enum.KeyCode.RightShift
+local TECLA_PB_SPAM = Enum.KeyCode.E
 
-if localPlayer:GetAttribute("LockOnKey") then
-    TECLA_LOCK = Enum.KeyCode[localPlayer:GetAttribute("LockOnKey")] or Enum.KeyCode.V
-end
+if localPlayer:GetAttribute("LockOnKey") then TECLA_LOCK = Enum.KeyCode[localPlayer:GetAttribute("LockOnKey")] or Enum.KeyCode.V end
+if localPlayer:GetAttribute("EspKey") then TOGGLE_KEY_ESP = Enum.KeyCode[localPlayer:GetAttribute("EspKey")] or Enum.KeyCode.U end
+if localPlayer:GetAttribute("HudPanelKey") then TECLA_HUD_PANEL = Enum.KeyCode[localPlayer:GetAttribute("HudPanelKey")] or Enum.KeyCode.RightShift end
+if localPlayer:GetAttribute("PbSpamKey") then TECLA_PB_SPAM = Enum.KeyCode[localPlayer:GetAttribute("PbSpamKey")] or Enum.KeyCode.E end
 
--- Configurações do ESP (Salva via Attributes)
 local espVisible = true
 local tracked = {}
-local TOGGLE_KEY_ESP = Enum.KeyCode.U
-
-if localPlayer:GetAttribute("EspKey") then
-    TOGGLE_KEY_ESP = Enum.KeyCode[localPlayer:GetAttribute("EspKey")] or Enum.KeyCode.U
-end
-
 local SHOW_THROUGH_WALLS = true
 local BILLBOARD_OFFSET = Vector3.new(0, 2.7, 0)
 local FONT = Enum.Font.SourceSansBold
@@ -121,16 +119,20 @@ local BAR_WIDTH = 100
 local DEBOUNCE_KEY = 0.18
 local espDebounce = false
 
--- Variáveis de Estado de Controle
+-- Estados de Controle
 local alvoAtual = nil
 local lockOnAtivo = false
 local conexaoCamera = nil
 local esperandoTeclaLock = false
 local esperandoTeclaEsp = false
+local esperandoTeclaHud = false
+local esperandoTeclaPb = false
 local editMode = false
+local pbSpamAtivo = false
+local mobileButtonsVisible = true
 
 -- =============================================================================
--- 3. INTERFACE DE USUÁRIO (ClaraLock Hub Atualizado - Altura Aumentada para +1 Botão)
+-- 3. INTERFACE DE USUÁRIO (ClaraLock Hub Adaptada)
 -- =============================================================================
 local screenGui = Instance.new("ScreenGui")
 screenGui.Name = "ClaraLockHub"
@@ -138,17 +140,14 @@ screenGui.ResetOnSpawn = false
 screenGui.Parent = localPlayer:WaitForChild("PlayerGui")
 
 local mainFrame = Instance.new("Frame")
-mainFrame.Size = UDim2.new(0, 300, 0, 270) -- Aumentado de 220 para 270 para caber o novo seletor do ESP
-mainFrame.Position = UDim2.new(0.5, -150, 0, 30)
+mainFrame.Size = UDim2.new(0, 320, 0, 360)
+mainFrame.Position = UDim2.new(0.5, -160, 0.2, 0)
 mainFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 20)
 mainFrame.BorderSizePixel = 0
 mainFrame.ClipsDescendants = true
 mainFrame.Parent = screenGui
 
-local mainCorner = Instance.new("UICorner")
-mainCorner.CornerRadius = UDim.new(0, 16)
-mainCorner.Parent = mainFrame
-
+Instance.new("UICorner", mainFrame).CornerRadius = UDim.new(0, 16)
 local mainStroke = Instance.new("UIStroke")
 mainStroke.Thickness = 2
 mainStroke.Color = Color3.fromRGB(80, 0, 255)
@@ -156,11 +155,11 @@ mainStroke.Transparency = 0.6
 mainStroke.Parent = mainFrame
 
 local title = Instance.new("TextLabel")
-title.Size = UDim2.new(1, 0, 0, 50)
+title.Size = UDim2.new(1, 0, 0, 45)
 title.BackgroundTransparency = 1
 title.Text = "CLARALOCK"
 title.TextColor3 = Color3.fromRGB(255, 255, 255)
-title.TextSize = 28
+title.TextSize = 26
 title.Font = Enum.Font.GothamBlack
 title.Parent = mainFrame
 
@@ -170,96 +169,93 @@ titleStroke.Color = Color3.fromRGB(80, 0, 255)
 titleStroke.Parent = title
 
 local subtitle = Instance.new("TextLabel")
-subtitle.Size = UDim2.new(1, 0, 0, 20)
-subtitle.Position = UDim2.new(0, 0, 0, 48)
+subtitle.Size = UDim2.new(1, 0, 0, 15)
+subtitle.Position = UDim2.new(0, 0, 0, 40)
 subtitle.BackgroundTransparency = 1
 subtitle.Text = "developed by Clara"
 subtitle.TextColor3 = Color3.fromRGB(180, 50, 255)
-subtitle.TextSize = 13
+subtitle.TextSize = 12
 subtitle.Font = Enum.Font.GothamMedium
 subtitle.Parent = mainFrame
 
--- --- SEÇÃO CONTROLE DE TECLAS (AIMBOT) ---
-local keyLabel = Instance.new("TextLabel")
-keyLabel.Size = UDim2.new(0.42, 0, 0, 22)
-keyLabel.Position = UDim2.new(0.05, 0, 0.32, 0)
-keyLabel.BackgroundTransparency = 1
-keyLabel.Text = "Lock: " .. TECLA_LOCK.Name
-keyLabel.TextColor3 = Color3.fromRGB(200, 200, 210)
-keyLabel.TextSize = 13
-keyLabel.Font = Enum.Font.GothamMedium
-keyLabel.TextXAlignment = Enum.TextXAlignment.Left
-keyLabel.Parent = mainFrame
+-- Container com Rolagem para os Botões Internos
+local scrollFrame = Instance.new("ScrollingFrame")
+scrollFrame.Size = UDim2.new(1, -20, 1, -70)
+scrollFrame.Position = UDim2.new(0, 10, 0, 60)
+scrollFrame.BackgroundTransparency = 1
+scrollFrame.CanvasSize = UDim2.new(0, 0, 0, 470) -- Aumentado o CanvasSize para caber o novo seletor
+scrollFrame.ScrollBarThickness = 4
+scrollFrame.ScrollBarImageColor3 = Color3.fromRGB(80, 0, 255)
+scrollFrame.Parent = mainFrame
 
-local changeKeyButton = Instance.new("TextButton")
-changeKeyButton.Size = UDim2.new(0.42, 0, 0, 32)
-changeKeyButton.Position = UDim2.new(0.05, 0, 0.42, 0)
-changeKeyButton.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
-changeKeyButton.Text = "🔑 Key Lock"
-changeKeyButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-changeKeyButton.TextSize = 12
-changeKeyButton.Font = Enum.Font.GothamSemibold
-changeKeyButton.Parent = mainFrame
-Instance.new("UICorner", changeKeyButton).CornerRadius = UDim.new(0, 8)
+local listLayout = Instance.new("UIListLayout")
+listLayout.Padding = UDim.new(0, 8)
+listLayout.SortOrder = Enum.SortOrder.LayoutOrder
+listLayout.Parent = scrollFrame
 
--- --- SEÇÃO CONTROLE DE TECLAS (ESP) ---
-local espKeyLabel = Instance.new("TextLabel")
-espKeyLabel.Size = UDim2.new(0.46, 0, 0, 22)
-espKeyLabel.Position = UDim2.new(0.52, 0, 0.32, 0)
-espKeyLabel.BackgroundTransparency = 1
-espKeyLabel.Text = "ESP: " .. TOGGLE_KEY_ESP.Name
-espKeyLabel.TextColor3 = Color3.fromRGB(200, 200, 210)
-espKeyLabel.TextSize = 13
-espKeyLabel.Font = Enum.Font.GothamMedium
-espKeyLabel.TextXAlignment = Enum.TextXAlignment.Left
-espKeyLabel.Parent = mainFrame
+-- Função auxiliar para criar linhas de Keybinds
+local function criarLinhaKeybind(textoPadrao, nomeBotao, layoutOrder)
+    local row = Instance.new("Frame")
+    row.Size = UDim2.new(1, 0, 0, 35)
+    row.BackgroundTransparency = 1
+    row.LayoutOrder = layoutOrder
+    row.Parent = scrollFrame
 
-local changeEspKeyButton = Instance.new("TextButton")
-changeEspKeyButton.Size = UDim2.new(0.46, 0, 0, 32)
-changeEspKeyButton.Position = UDim2.new(0.52, 0, 0.42, 0)
-changeEspKeyButton.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
-changeEspKeyButton.Text = "🔑 Key ESP"
-changeEspKeyButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-changeEspKeyButton.TextSize = 12
-changeEspKeyButton.Font = Enum.Font.GothamSemibold
-changeEspKeyButton.Parent = mainFrame
-Instance.new("UICorner", changeEspKeyButton).CornerRadius = UDim.new(0, 8)
+    local lbl = Instance.new("TextLabel")
+    lbl.Size = UDim2.new(0.5, -5, 1, 0)
+    lbl.BackgroundTransparency = 1
+    lbl.Text = textoPadrao
+    lbl.TextColor3 = Color3.fromRGB(200, 200, 210)
+    lbl.TextSize = 12
+    lbl.Font = Enum.Font.GothamMedium
+    lbl.TextXAlignment = Enum.TextXAlignment.Left
+    lbl.Parent = row
 
--- --- BOTÕES DE ATIVAÇÃO GERAL ---
-local toggleButton = Instance.new("TextButton")
-toggleButton.Size = UDim2.new(0.9, 0, 0, 36)
-toggleButton.Position = UDim2.new(0.05, 0, 0.58, 0)
-toggleButton.BackgroundColor3 = Color3.fromRGB(0, 150, 255)
-toggleButton.Text = "ENABLE AIMBOT"
-toggleButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-toggleButton.TextSize = 13
-toggleButton.Font = Enum.Font.GothamBold
-toggleButton.Parent = mainFrame
-Instance.new("UICorner", toggleButton).CornerRadius = UDim.new(0, 8)
+    local btn = Instance.new("TextButton")
+    btn.Size = UDim2.new(0.5, -5, 1, 0)
+    btn.Position = UDim2.new(0.5, 5, 0, 0)
+    btn.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
+    btn.Text = nomeBotao
+    btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    btn.TextSize = 11
+    btn.Font = Enum.Font.GothamSemibold
+    btn.Parent = row
+    Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 6)
 
-local hideButton = Instance.new("TextButton")
-hideButton.Size = UDim2.new(0.9, 0, 0, 32)
-hideButton.Position = UDim2.new(0.05, 0, 0.74, 0)
-hideButton.BackgroundColor3 = Color3.fromRGB(255, 80, 80)
-hideButton.Text = "Minimize Menu"
-hideButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-hideButton.TextSize = 13
-hideButton.Font = Enum.Font.GothamSemibold
-hideButton.Parent = mainFrame
-Instance.new("UICorner", hideButton).CornerRadius = UDim.new(0, 8)
+    return lbl, btn
+end
 
-local editButton = Instance.new("TextButton")
-editButton.Size = UDim2.new(0.9, 0, 0, 32)
-editButton.Position = UDim2.new(0.05, 0, 0.87, 0)
-editButton.BackgroundColor3 = Color3.fromRGB(100, 60, 180)
-editButton.Text = "✏️ Edit Positions"
-editButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-editButton.TextSize = 13
-editButton.Font = Enum.Font.GothamSemibold
-editButton.Parent = mainFrame
-Instance.new("UICorner", editButton).CornerRadius = UDim.new(0, 8)
+-- Criando os Elementos Internos organizados por LayoutOrder
+local keyLabel, changeKeyButton = criarLinhaKeybind("Lock: " .. TECLA_LOCK.Name, "🔑 Key Lock", 1)
+local espKeyLabel, changeEspKeyButton = criarLinhaKeybind("ESP: " .. TOGGLE_KEY_ESP.Name, "🔑 Key ESP", 2)
+local hudKeyLabel, changeHudKeyButton = criarLinhaKeybind("Hide Hub: " .. TECLA_HUD_PANEL.Name, "🔑 Key Menu", 3)
+local pbKeyLabel, changePbKeyButton = criarLinhaKeybind("PB Spam: " .. TECLA_PB_SPAM.Name, "🔑 PB Key", 4) -- Nova linha de Keychanger
 
--- Botão para Reabrir a interface
+local function criarBotaoMenu(texto, cor, layoutOrder)
+    local btn = Instance.new("TextButton")
+    btn.Size = UDim2.new(1, 0, 0, 36)
+    btn.BackgroundColor3 = cor
+    btn.Text = texto
+    btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    btn.TextSize = 12
+    btn.Font = Enum.Font.GothamBold
+    btn.LayoutOrder = layoutOrder
+    btn.Parent = scrollFrame
+    Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 8)
+    return btn
+end
+
+local toggleButton = criarBotaoMenu("ENABLE AIMBOT", Color3.fromRGB(0, 150, 255), 5)
+local pbSpamButton = criarBotaoMenu("🔴 PB SPAM: OFF", Color3.fromRGB(40, 40, 50), 6)
+local toggleMobileHudButton = criarBotaoMenu("📱 HIDE MOBILE BUTTONS", Color3.fromRGB(140, 20, 200), 7)
+local editButton = criarBotaoMenu("✏️ Edit Positions", Color3.fromRGB(100, 60, 180), 8)
+local hideButton = criarBotaoMenu("Minimize Menu", Color3.fromRGB(255, 80, 80), 9)
+
+-- Botões Mobile Flutuantes
+local mobileButtonsContainer = Instance.new("Folder")
+mobileButtonsContainer.Name = "MobileButtons"
+mobileButtonsContainer.Parent = screenGui
+
 local openButton = Instance.new("TextButton")
 openButton.Size = UDim2.new(0, 45, 0, 45)
 openButton.Position = UDim2.new(0.5, -22.5, 0, 15)
@@ -271,27 +267,35 @@ openButton.Visible = false
 openButton.Parent = screenGui
 Instance.new("UICorner", openButton).CornerRadius = UDim.new(0, 10)
 
--- Botões Mobile flutuantes
 local mobileLockButton = Instance.new("TextButton")
-mobileLockButton.Size = UDim2.new(0, 70, 0, 70)
-mobileLockButton.Position = UDim2.new(1, -90, 0.35, 0)
+mobileLockButton.Size = UDim2.new(0, 65, 0, 65)
+mobileLockButton.Position = UDim2.new(1, -85, 0.25, 0)
 mobileLockButton.BackgroundColor3 = Color3.fromRGB(0, 150, 255)
 mobileLockButton.Text = "🎯"
-mobileLockButton.TextSize = 32
-mobileLockButton.Parent = screenGui
+mobileLockButton.TextSize = 28
+mobileLockButton.Parent = mobileButtonsContainer
 Instance.new("UICorner", mobileLockButton).CornerRadius = UDim.new(0, 35)
 
 local mobileEspButton = Instance.new("TextButton")
-mobileEspButton.Size = UDim2.new(0, 70, 0, 70)
-mobileEspButton.Position = UDim2.new(1, -90, 0.35, 80)
+mobileEspButton.Size = UDim2.new(0, 65, 0, 65)
+mobileEspButton.Position = UDim2.new(1, -85, 0.25, 75)
 mobileEspButton.BackgroundColor3 = Color3.fromRGB(40, 200, 100)
 mobileEspButton.Text = "👁️‍🗨️"
-mobileEspButton.TextSize = 32
-mobileEspButton.Parent = screenGui
+mobileEspButton.TextSize = 28
+mobileEspButton.Parent = mobileButtonsContainer
 Instance.new("UICorner", mobileEspButton).CornerRadius = UDim.new(0, 35)
 
+local mobilePbButton = Instance.new("TextButton")
+mobilePbButton.Size = UDim2.new(0, 65, 0, 65)
+mobilePbButton.Position = UDim2.new(1, -85, 0.25, 150)
+mobilePbButton.BackgroundColor3 = Color3.fromRGB(50, 50, 60)
+mobilePbButton.Text = "🚀"
+mobilePbButton.TextSize = 28
+mobilePbButton.Parent = mobileButtonsContainer
+Instance.new("UICorner", mobilePbButton).CornerRadius = UDim.new(0, 35)
+
 -- =============================================================================
--- 4. FUNÇÕES DE ARRASTAR (Drag System)
+-- 4. FUNÇÕES DE ARRASTAR E ALTERNAR VISIBILIDADE
 -- =============================================================================
 local function makeDraggable(button)
     local dragging = false
@@ -330,8 +334,33 @@ local function toggleEditMode()
     end
 end
 
+local function toggleHubVisibility()
+    mainFrame.Visible = not mainFrame.Visible
+    if not mainFrame.Visible then
+        openButton.Visible = true
+    else
+        openButton.Visible = false
+    end
+end
+
+local function toggleMobileHud()
+    mobileButtonsVisible = not mobileButtonsVisible
+    for _, btn in ipairs(mobileButtonsContainer:GetChildren()) do
+        if btn:IsA("TextButton") then
+            btn.Visible = mobileButtonsVisible
+        end
+    end
+    if mobileButtonsVisible then
+        toggleMobileHudButton.Text = "📱 HIDE MOBILE BUTTONS"
+        toggleMobileHudButton.BackgroundColor3 = Color3.fromRGB(140, 20, 200)
+    else
+        toggleMobileHudButton.Text = "📱 SHOW MOBILE BUTTONS"
+        toggleMobileHudButton.BackgroundColor3 = Color3.fromRGB(60, 60, 70)
+    end
+end
+
 -- =============================================================================
--- 5. LÓGICA DO AIMBOT (Lock-On)
+-- 5. LÓGICA DO AIMBOT & MACRO PB SPAM
 -- =============================================================================
 local function obterPlayerMaisProximoDaVisao()
     local personagemPlayer = localPlayer.Character
@@ -377,7 +406,6 @@ local function toggleLock()
         lockOnAtivo = false
         alvoAtual = nil
         if conexaoCamera then conexaoCamera:Disconnect() end
-        
         toggleButton.Text = "ENABLE AIMBOT"
         toggleButton.BackgroundColor3 = Color3.fromRGB(0, 150, 255)
         mobileLockButton.BackgroundColor3 = Color3.fromRGB(0, 150, 255)
@@ -387,49 +415,86 @@ local function toggleLock()
             alvoAtual = alvo
             lockOnAtivo = true
             conexaoCamera = RunService.RenderStepped:Connect(atualizarCamera)
-            
             toggleButton.Text = "DISABLE AIMBOT"
             toggleButton.BackgroundColor3 = Color3.fromRGB(255, 60, 60)
             mobileLockButton.BackgroundColor3 = Color3.fromRGB(255, 60, 60)
-        else
-            warn("No player in sight.")
         end
     end
 end
 
--- Mudar e salvar a tecla de trava de mira
+-- Lógica do PB Spam (Macro de Cliques do Mouse2)
+local function togglePbSpam()
+    pbSpamAtivo = not pbSpamAtivo
+    if pbSpamAtivo then
+        pbSpamButton.Text = "🟢 PB SPAM: ON"
+        pbSpamButton.BackgroundColor3 = Color3.fromRGB(40, 200, 100)
+        mobilePbButton.BackgroundColor3 = Color3.fromRGB(40, 200, 100)
+        
+        task.spawn(function()
+            while pbSpamAtivo do
+                VirtualInputManager:SendMouseButtonEvent(0, 0, 1, true, game, 1)
+                task.wait(0.01)
+                VirtualInputManager:SendMouseButtonEvent(0, 0, 1, false, game, 1)
+                task.wait(0.01)
+            end
+        end)
+    else
+        pbSpamButton.Text = "🔴 PB SPAM: OFF"
+        pbSpamButton.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
+        mobilePbButton.BackgroundColor3 = Color3.fromRGB(50, 50, 60)
+    end
+end
+
+-- Alteradores de Teclas Individuais
 local function mudarTeclaLock()
-    if esperandoTeclaLock or esperandoTeclaEsp then return end
-    esperandoTeclaLock = true
-    changeKeyButton.Text = "Waiting..."
-    
-    local conn
-    conn = UserInputService.InputBegan:Connect(function(input, gp)
+    if esperandoTeclaLock or esperandoTeclaEsp or esperandoTeclaHud or esperandoTeclaPb then return end
+    esperandoTeclaLock = true; changeKeyButton.Text = "Waiting..."
+    local conn; conn = UserInputService.InputBegan:Connect(function(input, gp)
         if gp or input.KeyCode == Enum.KeyCode.Unknown then return end
         TECLA_LOCK = input.KeyCode
-        localPlayer:SetAttribute("LockOnKey", TECLA_LOCK.Name) -- Salva o valor no Atributo do Jogador
+        localPlayer:SetAttribute("LockOnKey", TECLA_LOCK.Name)
         keyLabel.Text = "Lock: " .. TECLA_LOCK.Name
         changeKeyButton.Text = "🔑 Key Lock"
-        conn:Disconnect()
-        esperandoTeclaLock = false
+        conn:Disconnect(); esperandoTeclaLock = false
     end)
 end
 
--- Mudar e salvar a tecla do ESP
 local function mudarTeclaEsp()
-    if esperandoTeclaLock or esperandoTeclaEsp then return end
-    esperandoTeclaEsp = true
-    changeEspKeyButton.Text = "Waiting..."
-    
-    local conn
-    conn = UserInputService.InputBegan:Connect(function(input, gp)
+    if esperandoTeclaLock or esperandoTeclaEsp or esperandoTeclaHud or esperandoTeclaPb then return end
+    esperandoTeclaEsp = true; changeEspKeyButton.Text = "Waiting..."
+    local conn; conn = UserInputService.InputBegan:Connect(function(input, gp)
         if gp or input.KeyCode == Enum.KeyCode.Unknown then return end
         TOGGLE_KEY_ESP = input.KeyCode
-        localPlayer:SetAttribute("EspKey", TOGGLE_KEY_ESP.Name) -- Salva o valor no Atributo do Jogador
+        localPlayer:SetAttribute("EspKey", TOGGLE_KEY_ESP.Name)
         espKeyLabel.Text = "ESP: " .. TOGGLE_KEY_ESP.Name
         changeEspKeyButton.Text = "🔑 Key ESP"
-        conn:Disconnect()
-        esperandoTeclaEsp = false
+        conn:Disconnect(); esperandoTeclaEsp = false
+    end)
+end
+
+local function mudarTeclaHud()
+    if esperandoTeclaLock or esperandoTeclaEsp or esperandoTeclaHud or esperandoTeclaPb then return end
+    esperandoTeclaHud = true; changeHudKeyButton.Text = "Waiting..."
+    local conn; conn = UserInputService.InputBegan:Connect(function(input, gp)
+        if gp or input.KeyCode == Enum.KeyCode.Unknown then return end
+        TECLA_HUD_PANEL = input.KeyCode
+        localPlayer:SetAttribute("HudPanelKey", TECLA_HUD_PANEL.Name)
+        hudKeyLabel.Text = "Hide Hub: " .. TECLA_HUD_PANEL.Name
+        changeHudKeyButton.Text = "🔑 Key Menu"
+        conn:Disconnect(); esperandoTeclaHud = false
+    end)
+end
+
+local function mudarTeclaPb()
+    if esperandoTeclaLock or esperandoTeclaEsp or esperandoTeclaHud or esperandoTeclaPb then return end
+    esperandoTeclaPb = true; changePbKeyButton.Text = "Waiting..."
+    local conn; conn = UserInputService.InputBegan:Connect(function(input, gp)
+        if gp or input.KeyCode == Enum.KeyCode.Unknown then return end
+        TECLA_PB_SPAM = input.KeyCode
+        localPlayer:SetAttribute("PbSpamKey", TECLA_PB_SPAM.Name)
+        pbKeyLabel.Text = "PB Spam: " .. TECLA_PB_SPAM.Name
+        changePbKeyButton.Text = "🔑 PB Key"
+        conn:Disconnect(); esperandoTeclaPb = false
     end)
 end
 
@@ -439,27 +504,15 @@ end
 local function toggleEspVisibility()
     espVisible = not espVisible
     for _, t in pairs(tracked) do
-        if t and t.info and t.info.billboard then
-            t.info.billboard.Enabled = espVisible
-        end
+        if t and t.info and t.info.billboard then t.info.billboard.Enabled = espVisible end
     end
-    
-    if espVisible then
-        mobileEspButton.BackgroundColor3 = Color3.fromRGB(40, 200, 100)
-    else
-        mobileEspButton.BackgroundColor3 = Color3.fromRGB(150, 150, 150)
-    end
+    mobileEspButton.BackgroundColor3 = espVisible and Color3.fromRGB(40, 200, 100) or Color3.fromRGB(150, 150, 150)
 end
 
 local function createBillboardForCharacter(character, player)
-    if player == Players.LocalPlayer then return nil end
-    if not character or not character.Parent then return nil end
-    
+    if player == Players.LocalPlayer or not character or not character.Parent then return nil end
     local head = character:FindFirstChild("Head") or character:FindFirstChild("UpperTorso") or character.PrimaryPart
     if not head then return nil end
-
-    local existing = head:FindFirstChild("ESP_Billboard")
-    if existing then existing:Destroy() end
 
     local billboard = Instance.new("BillboardGui")
     billboard.Name = "ESP_Billboard"
@@ -477,7 +530,6 @@ local function createBillboardForCharacter(character, player)
     frame.Parent = billboard
 
     local nameLabel = Instance.new("TextLabel")
-    nameLabel.Name = "ESPName"
     nameLabel.Size = UDim2.new(1, -8, 0, 20)
     nameLabel.Position = UDim2.new(0, 4, 0, 0)
     nameLabel.BackgroundTransparency = 1
@@ -485,30 +537,20 @@ local function createBillboardForCharacter(character, player)
     nameLabel.TextColor3 = Color3.fromRGB(220, 180, 255)
     nameLabel.Font = FONT
     nameLabel.TextSize = NAME_TEXT_SIZE
-    nameLabel.TextStrokeTransparency = -1
     nameLabel.Parent = frame
 
     local barBack = Instance.new("Frame")
-    barBack.Name = "HealthBack"
     barBack.Size = UDim2.new(1, -8, 0, 3)
     barBack.Position = UDim2.new(0, 4, 0, 20)
     barBack.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
     barBack.BorderSizePixel = 0
     barBack.Parent = frame
-    Instance.new("UICorner", barBack).CornerRadius = UDim.new(0, 8)
 
     local healthFill = Instance.new("Frame")
-    healthFill.Name = "HealthFill"
     healthFill.Size = UDim2.new(1, 0, 1, 0)
     healthFill.BorderSizePixel = 0
     healthFill.BackgroundColor3 = Color3.fromRGB(40, 200, 100)
     healthFill.Parent = barBack
-    Instance.new("UICorner", healthFill).CornerRadius = UDim.new(0, 8)
-
-    local stroke = Instance.new("UIStroke")
-    stroke.Color = Color3.fromRGB(18, 18, 18)
-    stroke.Thickness = 2
-    stroke.Parent = barBack
 
     return {billboard = billboard, nameLabel = nameLabel, healthBack = barBack, healthFill = healthFill}
 end
@@ -521,125 +563,81 @@ local function updateHudForCharacter(trackedInfo, humanoid)
 end
 
 local function trackCharacter(character, player)
-    if player == Players.LocalPlayer then return end
-    if not character then return end
-
-    if tracked[character] then
-        if tracked[character].info and tracked[character].info.billboard then
-            tracked[character].info.billboard.Enabled = espVisible
-        end
-        return
-    end
-
-    local humanoid = character:FindFirstChildOfClass("Humanoid")
-    if not humanoid then
-        humanoid = character:WaitForChild("Humanoid", 2)
-        if not humanoid then return end
-    end
+    if player == Players.LocalPlayer or not character or tracked[character] then return end
+    local humanoid = character:FindFirstChildOfClass("Humanoid") or character:WaitForChild("Humanoid", 2)
+    if not humanoid then return end
 
     local info = createBillboardForCharacter(character, player)
     if not info then return end
-
     updateHudForCharacter(info, humanoid)
 
-    local c1 = humanoid.HealthChanged:Connect(function()
-        updateHudForCharacter(info, humanoid)
-    end)
-    local c2 = humanoid.Died:Connect(function()
-        if info.billboard and info.billboard.Parent then
-            info.billboard:Destroy()
-        end
-    end)
-
+    local c1 = humanoid.HealthChanged:Connect(function() updateHudForCharacter(info, humanoid) end)
+    local c2 = humanoid.Died:Connect(function() if info.billboard then info.billboard:Destroy() end end)
     tracked[character] = {info = info, connections = {c1, c2}}
 end
 
 local function untrackCharacter(character)
-    if not character then return end
+    if not character or not tracked[character] then return end
     local t = tracked[character]
-    if t then
-        for _, c in ipairs(t.connections) do
-            if c and c.Disconnect then pcall(function() c:Disconnect() end) end
-        end
-        if t.info and t.info.billboard and t.info.billboard.Parent then
-            t.info.billboard:Destroy()
-        end
-        tracked[character] = nil
-    end
+    for _, c in ipairs(t.connections) do if c then c:Disconnect() end end
+    if t.info and t.info.billboard then t.info.billboard:Destroy() end
+    tracked[character] = nil
 end
 
 local function setupESP()
     for _, player in ipairs(Players:GetPlayers()) do
         if player ~= localPlayer then
-            if player.Character then
-                trackCharacter(player.Character, player)
-            end
-            player.CharacterAdded:Connect(function(c)
-                task.defer(function() trackCharacter(c, player) end)
-            end)
-            player.CharacterRemoving:Connect(function(c)
-                untrackCharacter(c)
-            end)
+            if player.Character then trackCharacter(player.Character, player) end
+            player.CharacterAdded:Connect(function(c) task.defer(function() trackCharacter(c, player) end) end)
+            player.CharacterRemoving:Connect(function(c) untrackCharacter(c) end)
         end
     end
-
     Players.PlayerAdded:Connect(function(player)
         if player ~= localPlayer then
-            player.CharacterAdded:Connect(function(c)
-                task.defer(function() trackCharacter(c, player) end)
-            end)
+            player.CharacterAdded:Connect(function(c) task.defer(function() trackCharacter(c, player) end) end)
         end
     end)
 end
 
 -- =============================================================================
--- 7. INPUTS, CONEXÕES E EVENTOS DE ATIVAÇÃO
+-- 7. CONEXÕES DE EVENTOS E INPUTS
 -- =============================================================================
-
 makeDraggable(hideButton)
 makeDraggable(mobileLockButton)
 makeDraggable(mobileEspButton)
+makeDraggable(mobilePbButton)
 
 editButton.Activated:Connect(toggleEditMode)
 changeKeyButton.Activated:Connect(mudarTeclaLock)
-changeEspKeyButton.Activated:Connect(mudarTeclaEsp) -- Nova conexão do botão do ESP
+changeEspKeyButton.Activated:Connect(mudarTeclaEsp)
+changeHudKeyButton.Activated:Connect(mudarTeclaHud)
+changePbKeyButton.Activated:Connect(mudarTeclaPb) -- Conexão do novo botão
 toggleButton.Activated:Connect(toggleLock)
+pbSpamButton.Activated:Connect(togglePbSpam)
+toggleMobileHudButton.Activated:Connect(toggleMobileHud)
 
--- Ouvinte da Tecla de Mira
 mobileLockButton.Activated:Connect(toggleLock)
-UserInputService.InputBegan:Connect(function(input, gameProcessed)
-    if gameProcessed or esperandoTeclaLock or esperandoTeclaEsp then return end
+mobileEspButton.Activated:Connect(toggleEspVisibility)
+mobilePbButton.Activated:Connect(togglePbSpam)
+
+hideButton.Activated:Connect(function() if not editMode then toggleHubVisibility() end end)
+openButton.Activated:Connect(toggleHubVisibility)
+
+-- Ouvinte Geral do Teclado PC
+UserInputService.InputBegan:Connect(function(input, processed)
+    if processed or esperandoTeclaLock or esperandoTeclaEsp or esperandoTeclaHud or esperandoTeclaPb then return end
     if input.KeyCode == TECLA_LOCK then
         toggleLock()
-    end
-end)
-
--- Ouvinte da Tecla/Botão do ESP
-mobileEspButton.Activated:Connect(function()
-    toggleEspVisibility()
-end)
-
-UserInputService.InputBegan:Connect(function(input, processed)
-    if processed or esperandoTeclaLock or esperandoTeclaEsp then return end
-    if input.KeyCode == TOGGLE_KEY_ESP then
+    elseif input.KeyCode == TOGGLE_KEY_ESP then
         if espDebounce then return end
         espDebounce = true
         toggleEspVisibility()
         task.delay(DEBOUNCE_KEY, function() espDebounce = false end)
+    elseif input.KeyCode == TECLA_HUD_PANEL then
+        toggleHubVisibility()
+    elseif input.KeyCode == TECLA_PB_SPAM then
+        togglePbSpam()
     end
-end)
-
--- Minimizar e Abrir Hub
-hideButton.Activated:Connect(function()
-    if not editMode then
-        mainFrame.Visible = false
-        openButton.Visible = true
-    end
-end)
-
-openButton.Activated:Connect(function()
-    mainFrame.Visible = true
-    openButton.Visible = false
 end)
 
 -- Sistema de arrastar o painel central
@@ -667,5 +665,4 @@ mainFrame.InputEnded:Connect(function(input)
 end)
 
 setupESP()
-
-print("✅ ClaraLock Hub Atualizado: Keybind do ESP e salvamento permanente adicionados!")
+print("✅ ClaraLock Hub Atualizado: Keychanger para o PB Spam adicionado com sucesso!")
