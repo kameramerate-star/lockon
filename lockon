@@ -39,6 +39,20 @@ else
     warn("Não foi possível encontrar uma função de requisição HTTP compatível (request/http_request).")
 end
 -- =============================================================================
+-- 0. PROTEÇÃO CONTRA DUPLA EXECUÇÃO
+-- =============================================================================
+if shared.ClaraLockExecutado then
+    local StarterGui = game:GetService("StarterGui")
+    StarterGui:SetCore("SendNotification", {
+        Title = "ClaraLock Hub",
+        Text = "O script já está aberto!",
+        Duration = 5
+    })
+    return -- Para a execução aqui se o script já tiver rodado antes
+end
+shared.ClaraLockExecutado = true
+
+-- =============================================================================
 -- 1. SISTEMA DE ANÚNCIO (Rimuro Message)
 -- =============================================================================
 local function ShowRimuroMessage()
@@ -223,7 +237,7 @@ local scrollFrame = Instance.new("ScrollingFrame")
 scrollFrame.Size = UDim2.new(1, -20, 1, -70)
 scrollFrame.Position = UDim2.new(0, 10, 0, 60)
 scrollFrame.BackgroundTransparency = 1
-scrollFrame.CanvasSize = UDim2.new(0, 0, 0, 470) -- Aumentado o CanvasSize para caber o novo seletor
+scrollFrame.CanvasSize = UDim2.new(0, 0, 0, 470)
 scrollFrame.ScrollBarThickness = 4
 scrollFrame.ScrollBarImageColor3 = Color3.fromRGB(80, 0, 255)
 scrollFrame.Parent = mainFrame
@@ -269,7 +283,7 @@ end
 local keyLabel, changeKeyButton = criarLinhaKeybind("Lock: " .. TECLA_LOCK.Name, "🔑 Key Lock", 1)
 local espKeyLabel, changeEspKeyButton = criarLinhaKeybind("ESP: " .. TOGGLE_KEY_ESP.Name, "🔑 Key ESP", 2)
 local hudKeyLabel, changeHudKeyButton = criarLinhaKeybind("Hide Hub: " .. TECLA_HUD_PANEL.Name, "🔑 Key Menu", 3)
-local pbKeyLabel, changePbKeyButton = criarLinhaKeybind("PB Spam: " .. TECLA_PB_SPAM.Name, "🔑 PB Key", 4) -- Nova linha de Keychanger
+local pbKeyLabel, changePbKeyButton = criarLinhaKeybind("PB Spam: " .. TECLA_PB_SPAM.Name, "🔑 PB Key", 4)
 
 local function criarBotaoMenu(texto, cor, layoutOrder)
     local btn = Instance.new("TextButton")
@@ -357,7 +371,7 @@ local function makeDraggable(button)
     end)
 
     button.InputEnded:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch_ then
             dragging = false
         end
     end)
@@ -462,7 +476,6 @@ local function toggleLock()
     end
 end
 
--- Lógica do PB Spam (Macro de Cliques do Mouse2)
 local function togglePbSpam()
     pbSpamAtivo = not pbSpamAtivo
     if pbSpamAtivo then
@@ -485,7 +498,6 @@ local function togglePbSpam()
     end
 end
 
--- Alteradores de Teclas Individuais
 local function mudarTeclaLock()
     if esperandoTeclaLock or esperandoTeclaEsp or esperandoTeclaHud or esperandoTeclaPb then return end
     esperandoTeclaLock = true; changeKeyButton.Text = "Waiting..."
@@ -574,7 +586,7 @@ local function createBillboardForCharacter(character, player)
     nameLabel.Position = UDim2.new(0, 4, 0, 0)
     nameLabel.BackgroundTransparency = 1
     nameLabel.Text = tostring(player and player.Name or "NPC")
-    nameLabel.TextColor3 = Color3.fromRGB(220, 180, 255)
+    nameLabel.TextColor3 = Color3.fromRGB(140, 80, 200)
     nameLabel.Font = FONT
     nameLabel.TextSize = NAME_TEXT_SIZE
     nameLabel.Parent = frame
@@ -651,7 +663,7 @@ editButton.Activated:Connect(toggleEditMode)
 changeKeyButton.Activated:Connect(mudarTeclaLock)
 changeEspKeyButton.Activated:Connect(mudarTeclaEsp)
 changeHudKeyButton.Activated:Connect(mudarTeclaHud)
-changePbKeyButton.Activated:Connect(mudarTeclaPb) -- Conexão do novo botão
+changePbKeyButton.Activated:Connect(mudarTeclaPb)
 toggleButton.Activated:Connect(toggleLock)
 pbSpamButton.Activated:Connect(togglePbSpam)
 toggleMobileHudButton.Activated:Connect(toggleMobileHud)
@@ -705,4 +717,4 @@ mainFrame.InputEnded:Connect(function(input)
 end)
 
 setupESP()
-print("✅ ClaraLock Hub Atualizado: Keychanger para o PB Spam adicionado com sucesso!")
+print("✅ ClaraLock Hub: Proteção anti-duplicação carregada!")
